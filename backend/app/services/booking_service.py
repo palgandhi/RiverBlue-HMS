@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
+from sqlalchemy.orm import joinedload
 from typing import Optional
 from datetime import date
 import uuid, random, string
@@ -47,7 +48,10 @@ async def create_booking(
     if not available:
         raise HTTPException(status_code=409, detail="Room not available for selected dates")
 
-    result = await db.execute(select(Room).where(Room.id == data.room_id))
+    # Eagerly load room_type to avoid lazy load in async context
+    result = await db.execute(
+        select(Room).options(joinedload(Room.room_type)).where(Room.id == data.room_id)
+    )
     room = result.scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")

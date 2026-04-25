@@ -1,18 +1,28 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import Sidebar from "@/components/layout/Sidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { token } = useAuthStore();
+  const { token, setAuth } = useAuthStore();
   const router = useRouter();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!token) router.push("/login");
-  }, [token, router]);
+    // Rehydrate from localStorage on client mount
+    const storedToken = localStorage.getItem("access_token");
+    const storedUser = localStorage.getItem("user");
+    if (storedToken && storedUser) {
+      setAuth(JSON.parse(storedUser), storedToken);
+    } else {
+      router.push("/login");
+    }
+    setReady(true);
+  }, []);
 
-  if (!token) return null;
+  if (!ready) return null;
+  if (!token && ready) return null;
 
   return (
     <div className="flex h-screen bg-muted/30">

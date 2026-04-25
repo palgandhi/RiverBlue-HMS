@@ -1,3 +1,4 @@
+"use client";
 import { create } from "zustand";
 import { User } from "@/types";
 
@@ -9,22 +10,22 @@ interface AuthStore {
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
-  user: typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("user") || "null")
-    : null,
-  token: typeof window !== "undefined"
-    ? localStorage.getItem("access_token")
-    : null,
+  user: null,
+  token: null,
 
   setAuth: (user, token) => {
-    localStorage.setItem("access_token", token);
-    localStorage.setItem("user", JSON.stringify(user));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("access_token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+    }
     set({ user, token });
   },
 
   logout: () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("user");
+    }
     set({ user: null, token: null });
   },
 }));
