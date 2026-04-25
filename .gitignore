@@ -30,3 +30,5 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+.DS_Store
+**/.DS_Store

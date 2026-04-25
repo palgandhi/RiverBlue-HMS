@@ -2,13 +2,14 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Sparkles, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
 interface Task {
   id: string;
   room_id: string;
+  assigned_to: string | null;
   task_type: string;
   priority: string;
   status: string;
@@ -17,17 +18,25 @@ interface Task {
   completed_at: string | null;
 }
 
-const priorityColor: Record<string, string> = {
-  low:    "bg-gray-100 text-gray-600",
-  normal: "bg-blue-100 text-blue-700",
-  urgent: "bg-red-100 text-red-700",
+const priorityConfig: Record<string, { label: string; color: string }> = {
+  low:    { label: "Low",    color: "bg-gray-100 text-gray-600" },
+  normal: { label: "Normal", color: "bg-blue-100 text-blue-700" },
+  urgent: { label: "Urgent", color: "bg-red-100 text-red-700" },
 };
 
-const statusColor: Record<string, string> = {
-  pending:     "bg-amber-100 text-amber-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  completed:   "bg-green-100 text-green-700",
-  skipped:     "bg-gray-100 text-gray-500",
+const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  pending:     { label: "Pending",     color: "bg-amber-100 text-amber-700", icon: Clock },
+  in_progress: { label: "In Progress", color: "bg-blue-100 text-blue-700",   icon: Sparkles },
+  completed:   { label: "Completed",   color: "bg-green-100 text-green-700", icon: CheckCircle },
+  skipped:     { label: "Skipped",     color: "bg-gray-100 text-gray-500",   icon: AlertCircle },
+};
+
+const taskTypeLabel: Record<string, string> = {
+  checkout_cleaning: "Checkout Cleaning",
+  daily_cleaning:    "Daily Cleaning",
+  turndown:          "Turndown Service",
+  maintenance:       "Maintenance",
+  deep_clean:        "Deep Clean",
 };
 
 export default function HousekeepingPage() {
@@ -36,125 +45,143 @@ export default function HousekeepingPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("pending");
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const roomsRes = await api.get("/rooms/");
-        const roomMap: Record<string, string> = {};
-        roomsRes.data.forEach((r: any) => { roomMap[r.id] = r.room_number; });
-        setRooms(roomMap);
-
-        // Generate tasks from rooms that need cleaning
-        const cleaningRooms = roomsRes.data.filter((r: any) => r.status === "cleaning");
-        const mockTasks: Task[] = cleaningRooms.map((r: any, i: number) => ({
-          id: `task-${i}`,
-          room_id: r.id,
-          task_type: "daily_cleaning",
-          priority: i % 3 === 0 ? "urgent" : "normal",
-          status: "pending",
-          notes: null,
-          scheduled_at: null,
-          completed_at: null,
-        }));
-        setTasks(mockTasks);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
-
-  const updateStatus = (taskId: string, status: string) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
-    toast.success(`Task marked as ${status.replace("_", " ")}`);
+  const loadTasks = async () => {
+    try {
+      const [tasksRes, roomsRes] = await Promise.all([
+        api.get("/housekeeping/tasks"),
+        api.get("/rooms/"),
+      ]);
+      setTasks(tasksRes.data);
+      const roomMap: Record<string, string> = {};
+      roomsRes.data.forEach((r: any) => { roomMap[r.id] = r.room_number; });
+      setRooms(roomMap);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const markRoomAvailable = async (roomId: string, taskId: string) => {
+  useEffect(() => { loadTasks(); }, []);
+
+  const updateTask = async (taskId: string, status: string) => {
     try {
-      await api.patch(`/rooms/${roomId}/status`, { status: "available" });
-      updateStatus(taskId, "completed");
-      toast.success("Room marked available");
-    } catch {
-      toast.error("Failed to update room");
+      const res = await api.patch(`/housekeeping/tasks/${taskId}`, { status });
+      setTasks(prev => prev.map(t => t.id === taskId ? res.data : t));
+      if (status === "completed") toast.success("Task completed — room marked available");
+      else toast.success(`Task ${status.replace("_", " ")}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || "Failed to update task");
     }
   };
 
   const filtered = filter === "all" ? tasks : tasks.filter(t => t.status === filter);
+  const counts = {
+    all: tasks.length,
+    pending: tasks.filter(t => t.status === "pending").length,
+    in_progress: tasks.filter(t => t.status === "in_progress").length,
+    completed: tasks.filter(t => t.status === "completed").length,
+  };
 
-  if (loading) return <div className="text-sm text-muted-foreground">Loading tasks...</div>;
+  if (loading) return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />)}
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Housekeeping</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{tasks.filter(t => t.status === "pending").length} tasks pending</p>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {counts.pending} pending · {counts.in_progress} in progress · {counts.completed} completed today
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={loadTasks} className="text-xs h-7">Refresh</Button>
       </div>
 
-      <div className="flex gap-2">
-        {["all", "pending", "in_progress", "completed"].map(s => (
-          <Button key={s} variant={filter === s ? "default" : "outline"} size="sm"
-            onClick={() => setFilter(s)} className="capitalize text-xs h-7">
+      {/* Filter tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {(["all", "pending", "in_progress", "completed"] as const).map(s => (
+          <Button
+            key={s}
+            variant={filter === s ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter(s)}
+            className="text-xs h-7 capitalize"
+          >
             {s.replace("_", " ")}
-            <span className="ml-1.5 opacity-70">
-              {s === "all" ? tasks.length : tasks.filter(t => t.status === s).length}
-            </span>
+            <span className="ml-1.5 opacity-70">{counts[s]}</span>
           </Button>
         ))}
       </div>
 
       {filtered.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground text-sm">
-            {filter === "pending" ? "No pending tasks — all rooms are clean! 🎉" : "No tasks found."}
+          <CardContent className="py-16 text-center">
+            <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-3" />
+            <p className="text-sm font-medium">
+              {filter === "pending" ? "All caught up! No pending tasks." : "No tasks found."}
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {filtered.map(task => (
-            <Card key={task.id} className="hover:shadow-sm transition-shadow">
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="font-semibold text-sm">Room {rooms[task.room_id] || task.room_id}</p>
-                    <p className="text-xs text-muted-foreground capitalize mt-0.5">
-                      {task.task_type.replace(/_/g, " ")}
+          {filtered.map(task => {
+            const StatusIcon = statusConfig[task.status]?.icon || Clock;
+            return (
+              <Card key={task.id} className="hover:shadow-sm transition-shadow">
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="font-semibold text-sm">
+                        Room {rooms[task.room_id] || "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {taskTypeLabel[task.task_type] || task.task_type}
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap justify-end">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priorityConfig[task.priority]?.color}`}>
+                        {priorityConfig[task.priority]?.label}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${statusConfig[task.status]?.color}`}>
+                        <StatusIcon className="h-3 w-3" />
+                        {statusConfig[task.status]?.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {task.notes && (
+                    <p className="text-xs bg-muted/60 rounded p-2 mb-3 text-muted-foreground">{task.notes}</p>
+                  )}
+
+                  {task.completed_at && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Completed: {new Date(task.completed_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                     </p>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priorityColor[task.priority]}`}>
-                      {task.priority}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[task.status]}`}>
-                      {task.status.replace("_", " ")}
-                    </span>
-                  </div>
-                </div>
+                  )}
 
-                {task.notes && (
-                  <p className="text-xs text-muted-foreground mb-3 bg-muted/50 rounded p-2">{task.notes}</p>
-                )}
-
-                {task.status === "pending" && (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="text-xs h-7 flex-1"
-                      onClick={() => updateStatus(task.id, "in_progress")}>
-                      Start
+                  {task.status === "pending" && (
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1 text-xs h-7"
+                        onClick={() => updateTask(task.id, "in_progress")}>
+                        Start
+                      </Button>
+                      <Button size="sm" className="flex-1 text-xs h-7 bg-green-600 hover:bg-green-700"
+                        onClick={() => updateTask(task.id, "completed")}>
+                        Mark Done
+                      </Button>
+                    </div>
+                  )}
+                  {task.status === "in_progress" && (
+                    <Button size="sm" className="w-full text-xs h-7 bg-green-600 hover:bg-green-700"
+                      onClick={() => updateTask(task.id, "completed")}>
+                      <CheckCircle className="h-3 w-3 mr-1.5" /> Complete
                     </Button>
-                    <Button size="sm" className="text-xs h-7 flex-1 bg-green-600 hover:bg-green-700"
-                      onClick={() => markRoomAvailable(task.room_id, task.id)}>
-                      Done + Mark Available
-                    </Button>
-                  </div>
-                )}
-                {task.status === "in_progress" && (
-                  <Button size="sm" className="text-xs h-7 w-full bg-green-600 hover:bg-green-700"
-                    onClick={() => markRoomAvailable(task.room_id, task.id)}>
-                    Complete + Mark Available
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
