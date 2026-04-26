@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import date, datetime
 import uuid
@@ -32,8 +32,8 @@ class BookingCreate(BaseModel):
     room_id: uuid.UUID
     check_in_date: date
     check_out_date: date
-    num_adults: int = 1
-    num_children: int = 0
+    num_adults: int = Field(default=1, ge=1, description='Must be at least 1 adult')
+    num_children: int = Field(default=0, ge=0)
     source: BookingSource = BookingSource.direct
     ota_booking_id: Optional[str] = None
     ota_channel: Optional[str] = None
