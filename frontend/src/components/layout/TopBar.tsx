@@ -11,6 +11,7 @@ const titles: Record<string, string> = {
   "/dashboard/checkin": "Check-in / Check-out",
   "/dashboard/housekeeping": "Housekeeping",
   "/dashboard/staff": "Staff Management",
+  "/dashboard/settings": "Hotel Settings",
 };
 
 export default function TopBar() {

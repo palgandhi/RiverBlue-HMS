@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard, BedDouble, CalendarDays, LogIn,
-  Sparkles, Users, LogOut, ChevronRight, Receipt
+  Sparkles, Users, LogOut, ChevronRight, Receipt, Settings
 } from "lucide-react";
 
 const navigation = [
@@ -19,6 +19,7 @@ const navigation = [
   { name: "Housekeeping", href: "/dashboard/housekeeping",   icon: Sparkles,        roles: ["admin","housekeeping","receptionist"] },
   { name: "Staff",        href: "/dashboard/staff",          icon: Users,           roles: ["admin"] },
   { name: "Billing",      href: "/dashboard/billing",        icon: Receipt,         roles: ["admin","receptionist"] },
+  { name: "Settings",     href: "/dashboard/settings",       icon: Settings,        roles: ["admin"] },
 ];
 
 export default function Sidebar() {

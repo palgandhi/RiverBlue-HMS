@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Receipt, Plus, CreditCard, ArrowLeft } from "lucide-react";
+import { Receipt, Plus, CreditCard, ArrowLeft, Printer } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
@@ -276,9 +276,19 @@ function BillingPageInner() {
             <p className="text-xs text-muted-foreground mt-0.5">{invoice.invoice_number}</p>
           </div>
         </div>
-        <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor[invoice.status]}`}>
-          {invoice.status.replace(/_/g, " ")}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor[invoice.status]}`}>
+            {invoice.status.replace(/_/g, " ")}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => window.open(`http://localhost:8000/api/v1/invoice/${bookingId}`, "_blank")}
+          >
+            <Printer className="h-3 w-3 mr-1" /> Invoice
+          </Button>
+        </div>
       </div>
 
       {/* Balance summary */}

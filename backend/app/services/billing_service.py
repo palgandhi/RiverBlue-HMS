@@ -38,7 +38,7 @@ async def get_or_create_folio(db: AsyncSession, booking_id: uuid.UUID) -> Invoic
     if invoice:
         return invoice
 
-    # Load booking to get room and calculate room charges
+    # Load booking
     booking_result = await db.execute(
         select(Booking).where(Booking.id == booking_id)
     )
@@ -46,15 +46,10 @@ async def get_or_create_folio(db: AsyncSession, booking_id: uuid.UUID) -> Invoic
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
 
-    # Get room type for GST calculation
-    room_result = await db.execute(
-        select(Room).where(Room.id == booking.room_id)
-    )
+    # Get room and room type
+    room_result = await db.execute(select(Room).where(Room.id == booking.room_id))
     room = room_result.scalar_one_or_none()
-
-    rt_result = await db.execute(
-        select(RoomType).where(RoomType.id == room.room_type_id)
-    )
+    rt_result = await db.execute(select(RoomType).where(RoomType.id == room.room_type_id))
     room_type = rt_result.scalar_one_or_none()
 
     # Generate sequential invoice number
@@ -66,7 +61,7 @@ async def get_or_create_folio(db: AsyncSession, booking_id: uuid.UUID) -> Invoic
     nights = nights_between(booking.check_in_date, booking.check_out_date)
     room_subtotal = room_type.base_price_per_night * nights
 
-    # Calculate GST on room charges
+    # GST is calculated AFTER discount — start with no discount
     gst = calculate_gst(room_subtotal, room_type.base_price_per_night)
 
     invoice = Invoice(
@@ -81,37 +76,34 @@ async def get_or_create_folio(db: AsyncSession, booking_id: uuid.UUID) -> Invoic
     db.add(invoice)
     await db.flush()
 
-    # Add room charge line items — one per night
+    # Room charge line items — one per night
     for i in range(nights):
-        item = InvoiceItem(
+        db.add(InvoiceItem(
             invoice_id=invoice.id,
             description=f"Room {room.room_number} — {room_type.name} (Night {i+1})",
             item_type="room",
             quantity=1,
             unit_price=room_type.base_price_per_night,
             total_price=room_type.base_price_per_night,
-        )
-        db.add(item)
+        ))
 
-    # Add GST line items
-    cgst_item = InvoiceItem(
+    # GST line items — will be recalculated when discount is applied
+    db.add(InvoiceItem(
         invoice_id=invoice.id,
-        description=f"CGST @ {int(gst['cgst_rate']*100)}% on room charges (HSN 9963)",
+        description=f"CGST @ {int(gst['cgst_rate']*100)}% on accommodation (HSN 9963)",
         item_type="tax",
         quantity=1,
         unit_price=gst["cgst"],
         total_price=gst["cgst"],
-    )
-    sgst_item = InvoiceItem(
+    ))
+    db.add(InvoiceItem(
         invoice_id=invoice.id,
-        description=f"SGST @ {int(gst['sgst_rate']*100)}% on room charges (HSN 9963)",
+        description=f"SGST @ {int(gst['sgst_rate']*100)}% on accommodation (HSN 9963)",
         item_type="tax",
         quantity=1,
         unit_price=gst["sgst"],
         total_price=gst["sgst"],
-    )
-    db.add(cgst_item)
-    db.add(sgst_item)
+    ))
     await db.flush()
     return invoice
 
@@ -137,13 +129,72 @@ async def add_line_item(
     )
     db.add(item)
 
-    # Discounts reduce total, extras add to it
     if data.item_type == "discount":
-        invoice.discount_amount += abs(total)
-        invoice.total_amount -= abs(total)
+        discount_amt = abs(total)
+        invoice.discount_amount += discount_amt
+
+        # Recalculate GST on (subtotal - total_discount)
+        taxable = invoice.subtotal - invoice.discount_amount
+
+        # Get room type rate for GST rate determination
+        from app.models.models import Room, RoomType
+        room_result = await db.execute(
+            select(Room).join(Booking, Booking.room_id == Room.id)
+            .where(Booking.id == booking_id)
+        )
+        room = room_result.scalar_one_or_none()
+        rt_result = await db.execute(select(RoomType).where(RoomType.id == room.room_type_id))
+        room_type = rt_result.scalar_one_or_none()
+
+        new_gst = calculate_gst(taxable, room_type.base_price_per_night)
+
+        # Update tax items
+        tax_items_result = await db.execute(
+            select(InvoiceItem).where(
+                InvoiceItem.invoice_id == invoice.id,
+                InvoiceItem.item_type == "tax"
+            )
+        )
+        tax_items = tax_items_result.scalars().all()
+        for ti in tax_items:
+            if "CGST" in ti.description:
+                ti.unit_price = new_gst["cgst"]
+                ti.total_price = new_gst["cgst"]
+            elif "SGST" in ti.description:
+                ti.unit_price = new_gst["sgst"]
+                ti.total_price = new_gst["sgst"]
+
+        invoice.tax_amount = new_gst["total_tax"]
+        invoice.total_amount = taxable + new_gst["total_tax"]
     else:
         invoice.subtotal += total
-        invoice.total_amount += total
+        # Recalculate tax on new subtotal minus existing discounts
+        taxable = invoice.subtotal - invoice.discount_amount
+        from app.models.models import Room, RoomType
+        room_result = await db.execute(
+            select(Room).join(Booking, Booking.room_id == Room.id)
+            .where(Booking.id == booking_id)
+        )
+        room = room_result.scalar_one_or_none()
+        rt_result = await db.execute(select(RoomType).where(RoomType.id == room.room_type_id))
+        room_type = rt_result.scalar_one_or_none()
+        new_gst = calculate_gst(taxable, room_type.base_price_per_night)
+        tax_items_result = await db.execute(
+            select(InvoiceItem).where(
+                InvoiceItem.invoice_id == invoice.id,
+                InvoiceItem.item_type == "tax"
+            )
+        )
+        tax_items = tax_items_result.scalars().all()
+        for ti in tax_items:
+            if "CGST" in ti.description:
+                ti.unit_price = new_gst["cgst"]
+                ti.total_price = new_gst["cgst"]
+            elif "SGST" in ti.description:
+                ti.unit_price = new_gst["sgst"]
+                ti.total_price = new_gst["sgst"]
+        invoice.tax_amount = new_gst["total_tax"]
+        invoice.total_amount = taxable + new_gst["total_tax"] + total
 
     await db.flush()
     return item

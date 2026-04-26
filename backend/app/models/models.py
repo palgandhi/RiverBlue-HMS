@@ -293,3 +293,23 @@ class OTAChannel(Base):
     api_key_encrypted: Mapped[Optional[str]] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
+class HotelSettings(Base):
+    __tablename__ = "hotel_settings"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    hotel_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    gstin: Mapped[Optional[str]] = mapped_column(String(20))
+    address_line1: Mapped[str] = mapped_column(String(255), nullable=False)
+    address_line2: Mapped[Optional[str]] = mapped_column(String(255))
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    state: Mapped[str] = mapped_column(String(100), nullable=False)
+    state_code: Mapped[str] = mapped_column(String(5), nullable=False)
+    pincode: Mapped[str] = mapped_column(String(10), nullable=False)
+    phone: Mapped[Optional[str]] = mapped_column(String(20))
+    email: Mapped[Optional[str]] = mapped_column(String(255))
+    website: Mapped[Optional[str]] = mapped_column(String(255))
+    checkin_time: Mapped[str] = mapped_column(String(10), default="14:00")
+    checkout_time: Mapped[str] = mapped_column(String(10), default="11:00")
+    currency: Mapped[str] = mapped_column(String(5), default="INR")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
