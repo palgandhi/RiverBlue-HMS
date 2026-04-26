@@ -187,8 +187,9 @@ test("Bookings list returned", isinstance(bookings, list), f"{len(bookings)} boo
 # Create a booking
 today = date.today()
 import random as _rand
-checkin = (today + timedelta(days=_rand.randint(60, 120))).isoformat()
-checkout = (today + timedelta(days=_rand.randint(121, 130))).isoformat()
+_offset = _rand.randint(200, 500)
+checkin = (today + timedelta(days=_offset)).isoformat()
+checkout = (today + timedelta(days=_offset + 2)).isoformat()
 
 booking_ref = None
 if guest_id and available_rooms:
