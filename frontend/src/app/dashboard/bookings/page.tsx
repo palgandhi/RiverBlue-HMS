@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/api";
+import { useRouter } from "next/navigation";
 import { Booking, BookingStatus } from "@/types";
 import Link from "next/link";
 
@@ -19,6 +20,7 @@ const statusColor: Record<BookingStatus, string> = {
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export default function BookingsPage() {
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No bookings found.</TableCell></TableRow>
               ) : filtered.map(b => (
-                <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40">
+                <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40" onClick={() => router.push(`/dashboard/billing?booking_id=${b.id}&ref=${b.booking_ref}`)}>
                   <TableCell className="font-mono text-sm font-medium">{b.booking_ref}</TableCell>
                   <TableCell className="text-sm">{b.check_in_date}</TableCell>
                   <TableCell className="text-sm">{b.check_out_date}</TableCell>

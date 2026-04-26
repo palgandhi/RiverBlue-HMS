@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.middleware.logging import logging_middleware
 from app.middleware.error_handler import error_handler_middleware
-from app.api.v1.routes import auth, bookings, rooms, users, checkins, housekeeping
+from app.api.v1.routes import auth, bookings, rooms, users, checkins, housekeeping, billing
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -58,6 +58,7 @@ app.include_router(rooms.router, prefix=PREFIX)
 app.include_router(users.router, prefix=PREFIX)
 app.include_router(checkins.router, prefix=PREFIX)
 app.include_router(housekeeping.router, prefix=PREFIX)
+app.include_router(billing.router, prefix=PREFIX)
 
 
 @app.get("/health", tags=["System"])
