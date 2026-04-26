@@ -126,6 +126,7 @@ async def add_line_item(
         raise HTTPException(status_code=409, detail="Cannot add items to a finalised invoice")
 
     total = data.quantity * data.unit_price
+
     item = InvoiceItem(
         invoice_id=invoice.id,
         description=data.description,
@@ -136,9 +137,14 @@ async def add_line_item(
     )
     db.add(item)
 
-    # Recalculate invoice totals
-    invoice.subtotal += total
-    invoice.total_amount += total
+    # Discounts reduce total, extras add to it
+    if data.item_type == "discount":
+        invoice.discount_amount += abs(total)
+        invoice.total_amount -= abs(total)
+    else:
+        invoice.subtotal += total
+        invoice.total_amount += total
+
     await db.flush()
     return item
 
