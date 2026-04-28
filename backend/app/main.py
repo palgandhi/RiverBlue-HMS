@@ -6,7 +6,8 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.middleware.logging import logging_middleware
 from app.middleware.error_handler import error_handler_middleware
-from app.api.v1.routes import auth, bookings, rooms, users, checkins, housekeeping, billing, settings, invoice
+from app.api.v1.routes import auth, bookings, rooms, users, checkins, housekeeping, billing, invoice, night_audit
+from app.api.v1.routes import settings as settings_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -15,9 +16,34 @@ logging.basicConfig(
 logger = logging.getLogger("riverblue")
 
 
+async def scheduled_night_audit():
+    """Runs the night audit every day at 23:59."""
+    import asyncio
+    from datetime import datetime, time
+    while True:
+        now = datetime.now()
+        # Calculate seconds until 23:59:00
+        target = now.replace(hour=23, minute=59, second=0, microsecond=0)
+        if now >= target:
+            target = target.replace(day=target.day + 1)
+        wait_seconds = (target - now).total_seconds()
+        logger.info(f"Night audit scheduled in {wait_seconds/3600:.1f} hours")
+        await asyncio.sleep(wait_seconds)
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.services.night_audit_service import run_night_audit
+            async with AsyncSessionLocal() as db:
+                result = await run_night_audit(db, ran_by="scheduler")
+                logger.info(f"Scheduled night audit result: {result}")
+        except Exception as e:
+            logger.error(f"Scheduled night audit failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"RiverBlue HMS starting — environment: {settings.ENVIRONMENT}")
+    import asyncio
+    asyncio.create_task(scheduled_night_audit())
     yield
     logger.info("RiverBlue HMS shutting down")
 
@@ -59,8 +85,9 @@ app.include_router(users.router, prefix=PREFIX)
 app.include_router(checkins.router, prefix=PREFIX)
 app.include_router(housekeeping.router, prefix=PREFIX)
 app.include_router(billing.router, prefix=PREFIX)
-app.include_router(settings.router, prefix=PREFIX)
+app.include_router(settings_router.router, prefix=PREFIX)
 app.include_router(invoice.router, prefix=PREFIX)
+app.include_router(night_audit.router, prefix=PREFIX)
 
 
 @app.get("/health", tags=["System"])

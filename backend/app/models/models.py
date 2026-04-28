@@ -313,3 +313,41 @@ class HotelSettings(Base):
     checkout_time: Mapped[str] = mapped_column(String(10), default="11:00")
     currency: Mapped[str] = mapped_column(String(5), default="INR")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class DailyStats(Base):
+    __tablename__ = "daily_stats"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, unique=True, index=True)
+    total_rooms: Mapped[int] = mapped_column(Integer, default=0)
+    occupied_rooms: Mapped[int] = mapped_column(Integer, default=0)
+    available_rooms: Mapped[int] = mapped_column(Integer, default=0)
+    out_of_order_rooms: Mapped[int] = mapped_column(Integer, default=0)
+    occupancy_pct: Mapped[int] = mapped_column(Integer, default=0)  # stored as integer e.g. 75 = 75%
+    room_revenue: Mapped[int] = mapped_column(Integer, default=0)   # paise
+    fb_revenue: Mapped[int] = mapped_column(Integer, default=0)
+    other_revenue: Mapped[int] = mapped_column(Integer, default=0)
+    total_revenue: Mapped[int] = mapped_column(Integer, default=0)
+    total_discounts: Mapped[int] = mapped_column(Integer, default=0)
+    new_bookings: Mapped[int] = mapped_column(Integer, default=0)
+    checkins_count: Mapped[int] = mapped_column(Integer, default=0)
+    checkouts_count: Mapped[int] = mapped_column(Integer, default=0)
+    no_shows_count: Mapped[int] = mapped_column(Integer, default=0)
+    adr: Mapped[int] = mapped_column(Integer, default=0)            # paise
+    revpar: Mapped[int] = mapped_column(Integer, default=0)         # paise
+    audit_ran_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    audit_ran_by: Mapped[Optional[str]] = mapped_column(String(100))
+
+
+class NightAuditLog(Base):
+    __tablename__ = "night_audit_logs"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, running, completed, failed
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    bookings_processed: Mapped[int] = mapped_column(Integer, default=0)
+    charges_posted: Mapped[int] = mapped_column(Integer, default=0)
+    total_revenue_posted: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    ran_by: Mapped[Optional[str]] = mapped_column(String(255))

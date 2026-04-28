@@ -76,34 +76,71 @@ async def get_or_create_folio(db: AsyncSession, booking_id: uuid.UUID) -> Invoic
     db.add(invoice)
     await db.flush()
 
-    # Room charge line items — one per night
-    for i in range(nights):
+    # DO NOT pre-create room charges here.
+    # Night audit posts room charges nightly.
+    # For same-day check-in/check-out (1 night), post first night charge immediately.
+    if nights == 1:
+        checkin_date = booking.check_in_date
+        night_label = checkin_date.strftime("%d %b %Y")
         db.add(InvoiceItem(
             invoice_id=invoice.id,
-            description=f"Room {room.room_number} — {room_type.name} (Night {i+1})",
+            description=f"Room {room.room_number} — {room_type.name} ({night_label})",
             item_type="room",
             quantity=1,
             unit_price=room_type.base_price_per_night,
             total_price=room_type.base_price_per_night,
         ))
+        db.add(InvoiceItem(
+            invoice_id=invoice.id,
+            description=f"CGST @ {int(gst['cgst_rate']*100)}% on accommodation (HSN 9963)",
+            item_type="tax",
+            quantity=1,
+            unit_price=gst["cgst"],
+            total_price=gst["cgst"],
+        ))
+        db.add(InvoiceItem(
+            invoice_id=invoice.id,
+            description=f"SGST @ {int(gst['sgst_rate']*100)}% on accommodation (HSN 9963)",
+            item_type="tax",
+            quantity=1,
+            unit_price=gst["sgst"],
+            total_price=gst["sgst"],
+        ))
+    else:
+        # Multi-night stays: post first night immediately, rest via night audit
+        checkin_date = booking.check_in_date
+        night_label = checkin_date.strftime("%d %b %Y")
+        db.add(InvoiceItem(
+            invoice_id=invoice.id,
+            description=f"Room {room.room_number} — {room_type.name} ({night_label})",
+            item_type="room",
+            quantity=1,
+            unit_price=room_type.base_price_per_night,
+            total_price=room_type.base_price_per_night,
+        ))
+        # Initial GST on first night only
+        first_night_gst = calculate_gst(room_type.base_price_per_night, room_type.base_price_per_night)
+        db.add(InvoiceItem(
+            invoice_id=invoice.id,
+            description=f"CGST @ {int(first_night_gst['cgst_rate']*100)}% on accommodation (HSN 9963)",
+            item_type="tax",
+            quantity=1,
+            unit_price=first_night_gst["cgst"],
+            total_price=first_night_gst["cgst"],
+        ))
+        db.add(InvoiceItem(
+            invoice_id=invoice.id,
+            description=f"SGST @ {int(first_night_gst['sgst_rate']*100)}% on accommodation (HSN 9963)",
+            item_type="tax",
+            quantity=1,
+            unit_price=first_night_gst["sgst"],
+            total_price=first_night_gst["sgst"],
+        ))
+        # Update invoice to reflect first night only
+        invoice.subtotal = room_type.base_price_per_night
+        invoice.tax_amount = first_night_gst["total_tax"]
+        invoice.total_amount = first_night_gst["total_with_tax"]
 
-    # GST line items — will be recalculated when discount is applied
-    db.add(InvoiceItem(
-        invoice_id=invoice.id,
-        description=f"CGST @ {int(gst['cgst_rate']*100)}% on accommodation (HSN 9963)",
-        item_type="tax",
-        quantity=1,
-        unit_price=gst["cgst"],
-        total_price=gst["cgst"],
-    ))
-    db.add(InvoiceItem(
-        invoice_id=invoice.id,
-        description=f"SGST @ {int(gst['sgst_rate']*100)}% on accommodation (HSN 9963)",
-        item_type="tax",
-        quantity=1,
-        unit_price=gst["sgst"],
-        total_price=gst["sgst"],
-    ))
     await db.flush()
     return invoice
 
