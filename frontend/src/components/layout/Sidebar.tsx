@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard, BedDouble, CalendarDays, LogIn,
-  Sparkles, Users, LogOut, ChevronRight, Receipt, Settings
+  Sparkles, Users, LogOut, ChevronRight, Receipt, Settings, BarChart3
 } from "lucide-react";
 
 const navigation = [
@@ -18,6 +18,7 @@ const navigation = [
   { name: "Check-in",     href: "/dashboard/checkin",        icon: LogIn,           roles: ["admin","receptionist"] },
   { name: "Housekeeping", href: "/dashboard/housekeeping",   icon: Sparkles,        roles: ["admin","housekeeping","receptionist"] },
   { name: "Staff",        href: "/dashboard/staff",          icon: Users,           roles: ["admin"] },
+  { name: "Reports",      href: "/dashboard/reports",        icon: BarChart3,       roles: ["admin"] },
   { name: "Billing",      href: "/dashboard/billing",        icon: Receipt,         roles: ["admin","receptionist"] },
   { name: "Settings",     href: "/dashboard/settings",       icon: Settings,        roles: ["admin"] },
 ];
