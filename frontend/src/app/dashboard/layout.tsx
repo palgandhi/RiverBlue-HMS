@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
+import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { token, setAuth } = useAuthStore();
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  useSessionTimeout();
 
   useEffect(() => {
     const storedToken = localStorage.getItem("access_token");
