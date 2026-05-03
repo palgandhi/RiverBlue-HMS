@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.middleware.logging import logging_middleware
 from app.middleware.error_handler import error_handler_middleware
-from app.api.v1.routes import auth, bookings, rooms, users, checkins, housekeeping, billing, invoice, night_audit
+from app.api.v1.routes import auth, bookings, rooms, users, checkins, housekeeping, billing, invoice, night_audit, ota
 from app.api.v1.routes import settings as settings_router
 
 logging.basicConfig(
@@ -88,6 +88,7 @@ app.include_router(billing.router, prefix=PREFIX)
 app.include_router(settings_router.router, prefix=PREFIX)
 app.include_router(invoice.router, prefix=PREFIX)
 app.include_router(night_audit.router, prefix=PREFIX)
+app.include_router(ota.router, prefix=PREFIX)
 
 
 @app.get("/health", tags=["System"])

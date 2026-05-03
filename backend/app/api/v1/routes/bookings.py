@@ -13,6 +13,26 @@ from app.services.booking_service import create_booking, get_booking_by_ref, upd
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
 
 
+@router.get("/guests/search", response_model=List[GuestResponse])
+async def search_guests(
+    q: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from sqlalchemy import or_
+    from app.models.models import Guest
+    result = await db.execute(
+        select(Guest).where(
+            or_(
+                Guest.full_name.ilike(f"%{q}%"),
+                Guest.phone.ilike(f"%{q}%"),
+                Guest.email.ilike(f"%{q}%"),
+            )
+        ).limit(10)
+    )
+    return result.scalars().all()
+
+
 @router.post("/guests", response_model=GuestResponse, status_code=201)
 async def create_guest(
     data: GuestCreate,
@@ -72,3 +92,48 @@ async def update_booking_route(
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     return await update_booking(db, booking, data)
+
+
+@router.post("/{booking_ref}/cancel", response_model=BookingResponse)
+async def cancel_booking(
+    booking_ref: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("admin", "receptionist")),
+):
+    from app.models.models import BookingStatus, RoomStatus, Room
+    booking = await get_booking_by_ref(db, booking_ref)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.status not in [BookingStatus.confirmed]:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot cancel a booking with status '{booking.status}'"
+        )
+    booking.status = BookingStatus.cancelled
+    # Free up the room
+    result = await db.execute(select(Room).where(Room.id == booking.room_id))
+    room = result.scalar_one_or_none()
+    if room and room.status == RoomStatus.occupied:
+        room.status = RoomStatus.available
+    await db.flush()
+    return booking
+
+
+@router.post("/{booking_ref}/no-show", response_model=BookingResponse)
+async def mark_no_show(
+    booking_ref: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("admin", "receptionist")),
+):
+    from app.models.models import BookingStatus
+    booking = await get_booking_by_ref(db, booking_ref)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.status != BookingStatus.confirmed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot mark no-show for booking with status '{booking.status}'"
+        )
+    booking.status = BookingStatus.no_show
+    await db.flush()
+    return booking

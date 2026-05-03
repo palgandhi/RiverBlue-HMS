@@ -351,3 +351,31 @@ class NightAuditLog(Base):
     total_revenue_posted: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[Optional[str]] = mapped_column(Text)
     ran_by: Mapped[Optional[str]] = mapped_column(String(255))
+
+
+class RatePlan(Base):
+    __tablename__ = "rate_plans"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    room_type_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("room_types.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)  # direct, makemytrip, ixigo, booking_com, expedia, channel_manager
+    price_per_night: Mapped[int] = mapped_column(Integer, nullable=False)  # paise
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    valid_from: Mapped[Optional[date]] = mapped_column(Date)
+    valid_to: Mapped[Optional[date]] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    room_type: Mapped["RoomType"] = relationship("RoomType")
+
+
+class OTAChannelConfig(Base):
+    __tablename__ = "ota_channel_configs"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    channel_name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    webhook_secret: Mapped[Optional[str]] = mapped_column(String(255))
+    api_key: Mapped[Optional[str]] = mapped_column(String(255))
+    api_endpoint: Mapped[Optional[str]] = mapped_column(String(500))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    commission_pct: Mapped[int] = mapped_column(Integer, default=0)  # e.g. 15 = 15%
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

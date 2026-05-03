@@ -13,6 +13,7 @@ const titles: Record<string, string> = {
   "/dashboard/staff": "Staff Management",
   "/dashboard/settings": "Hotel Settings",
   "/dashboard/reports": "Reports & Analytics",
+  "/dashboard/ota": "OTA & Rate Plans",
 };
 
 export default function TopBar() {
