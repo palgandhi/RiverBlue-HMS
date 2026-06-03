@@ -16,9 +16,10 @@ from app.services.ota_service import (
     list_ota_channels, create_ota_channel, update_ota_channel,
     RatePlanCreate, RatePlanUpdate, OTAChannelCreate, OTAChannelUpdate
 )
+from app.services.channel_push_service import push_rate_update, push_full_sync
 from app.models.models import (
     RatePlan, OTAChannelConfig, Room, RoomType, Booking,
-    BookingStatus, BookingSource, RoomStatus
+    BookingStatus, BookingSource, RoomStatus, OTAPushLog
 )
 from app.services.booking_service import create_or_get_guest
 from app.schemas.booking import GuestCreate
@@ -91,7 +92,10 @@ async def edit_rate_plan(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
-    return await update_rate_plan(db, plan_id, data)
+    plan = await update_rate_plan(db, plan_id, data)
+    # Push updated rate to all active channel managers
+    await push_rate_update(db, plan.id)
+    return plan
 
 
 # ── OTA Channels ──────────────────────────────────────────────────────────────
@@ -306,3 +310,50 @@ async def inbound_booking_webhook(
         "room": room.room_number,
         "total_amount": booking.total_amount,
     }
+
+
+# ── Manual full sync ──────────────────────────────────────────────────────────
+
+class PushSyncResponse(BaseModel):
+    room_types_synced: int
+    rate_plans_pushed: int
+    sync_window: str
+    synced_at: str
+
+
+@router.post("/sync/push", response_model=PushSyncResponse)
+async def manual_full_sync(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("admin")),
+):
+    """Manually trigger a full availability + rate push to all active channels."""
+    result = await push_full_sync(db)
+    return result
+
+
+# ── Push log listing ──────────────────────────────────────────────────────────
+
+class PushLogResponse(BaseModel):
+    id: uuid.UUID
+    pushed_at: datetime
+    push_type: str
+    success: bool
+    response_message: Optional[str]
+    channel_id: uuid.UUID
+    room_type_id: Optional[uuid.UUID]
+    model_config = {"from_attributes": True}
+
+
+@router.get("/push-logs", response_model=List[PushLogResponse])
+async def get_push_logs(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("admin")),
+):
+    """Last N outbound push attempts to channel managers."""
+    result = await db.execute(
+        select(OTAPushLog)
+        .order_by(OTAPushLog.pushed_at.desc())
+        .limit(limit)
+    )
+    return result.scalars().all()

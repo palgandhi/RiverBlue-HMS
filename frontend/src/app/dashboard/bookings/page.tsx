@@ -112,7 +112,7 @@ export default function BookingsPage() {
                 <TableRow
                   key={b.id}
                   className="cursor-pointer hover:bg-muted/40"
-                  onClick={() => router.push(`/dashboard/billing?booking_id=${b.id}&ref=${b.booking_ref}`)}
+                  onClick={() => router.push(`/dashboard/bookings/${b.booking_ref}`)}
                 >
                   <TableCell className="font-mono text-sm font-medium">{b.booking_ref}</TableCell>
                   <TableCell className="text-sm">{b.check_in_date}</TableCell>

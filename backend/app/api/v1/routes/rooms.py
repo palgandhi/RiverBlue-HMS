@@ -93,8 +93,19 @@ async def update_room_status(
     room = result.scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
+    old_status = room.status
     room.status = data.status
     if data.notes:
         room.notes = data.notes
     await db.flush()
+
+    from app.services.audit_log_service import log_action
+    await log_action(
+        db,
+        action="update_room_status",
+        entity_type="Room",
+        entity_id=str(room.id),
+        old_value={"status": old_status},
+        new_value={"status": room.status, "notes": room.notes}
+    )
     return {"id": str(room.id), "status": room.status}

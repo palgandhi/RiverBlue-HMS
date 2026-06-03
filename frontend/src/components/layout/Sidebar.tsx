@@ -8,19 +8,22 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard, BedDouble, CalendarDays, LogIn,
-  Sparkles, Users, LogOut, ChevronRight, Receipt, Settings, BarChart3, Globe
+  Sparkles, Users, LogOut, ChevronRight, Receipt, Settings, BarChart3, Globe,
+  UserRound, CalendarRange, Moon
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard",    href: "/dashboard",                icon: LayoutDashboard, roles: ["admin","receptionist","housekeeping","fb_staff"] },
   { name: "Rooms",        href: "/dashboard/rooms",          icon: BedDouble,       roles: ["admin","receptionist","housekeeping"] },
+  { name: "Calendar",     href: "/dashboard/calendar",       icon: CalendarRange,   roles: ["admin","receptionist"] },
   { name: "Bookings",     href: "/dashboard/bookings",       icon: CalendarDays,    roles: ["admin","receptionist"] },
+  { name: "Guests",       href: "/dashboard/guests",         icon: UserRound,       roles: ["admin","receptionist"] },
   { name: "Check-in",     href: "/dashboard/checkin",        icon: LogIn,           roles: ["admin","receptionist"] },
   { name: "Housekeeping", href: "/dashboard/housekeeping",   icon: Sparkles,        roles: ["admin","housekeeping","receptionist"] },
-  { name: "Staff",        href: "/dashboard/staff",          icon: Users,           roles: ["admin"] },
   { name: "Reports",      href: "/dashboard/reports",        icon: BarChart3,       roles: ["admin"] },
   { name: "OTA & Rates",  href: "/dashboard/ota",            icon: Globe,           roles: ["admin"] },
-  { name: "Billing",      href: "/dashboard/billing",        icon: Receipt,         roles: ["admin","receptionist"] },
+  { name: "Night Audit",  href: "/dashboard/night-audit",    icon: Moon,            roles: ["admin"] },
+  { name: "Staff",        href: "/dashboard/staff",          icon: Users,           roles: ["admin"] },
   { name: "Settings",     href: "/dashboard/settings",       icon: Settings,        roles: ["admin"] },
 ];
 

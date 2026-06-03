@@ -84,6 +84,34 @@ async def create_booking(
     )
     db.add(booking)
     await db.flush()
+
+    from app.services.audit_log_service import log_action
+    await log_action(
+        db,
+        action="create_booking",
+        entity_type="Booking",
+        entity_id=str(booking.id),
+        new_value={
+            "booking_ref": booking.booking_ref,
+            "room_id": str(booking.room_id),
+            "guest_id": str(booking.guest_id),
+            "check_in_date": str(booking.check_in_date),
+            "check_out_date": str(booking.check_out_date),
+            "total_amount": booking.total_amount,
+            "source": booking.source,
+        }
+    )
+
+    # Push availability update to channel managers (fire-and-forget)
+    from app.services.channel_push_service import push_availability_update
+    import asyncio
+    asyncio.create_task(
+        push_availability_update(
+            db, room.room_type_id,
+            data.check_in_date, data.check_out_date,
+            triggered_by="booking_created"
+        )
+    )
     return booking
 
 
@@ -93,9 +121,53 @@ async def get_booking_by_ref(db: AsyncSession, ref: str) -> Optional[Booking]:
 
 
 async def update_booking(db: AsyncSession, booking: Booking, data: BookingUpdate) -> Booking:
+    old_val = {
+        "room_id": str(booking.room_id),
+        "check_in_date": str(booking.check_in_date),
+        "check_out_date": str(booking.check_out_date),
+        "num_adults": booking.num_adults,
+        "num_children": booking.num_children,
+        "status": booking.status,
+    }
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(booking, field, value)
     await db.flush()
+
+    new_val = {
+        "room_id": str(booking.room_id),
+        "check_in_date": str(booking.check_in_date),
+        "check_out_date": str(booking.check_out_date),
+        "num_adults": booking.num_adults,
+        "num_children": booking.num_children,
+        "status": booking.status,
+    }
+
+    from app.services.audit_log_service import log_action
+    await log_action(
+        db,
+        action="update_booking",
+        entity_type="Booking",
+        entity_id=str(booking.id),
+        old_value=old_val,
+        new_value=new_val
+    )
+
+    # If status changed to cancelled/no_show, free up inventory on OTAs
+    new_status = new_val.get("status")
+    if new_status in ("cancelled", "no_show"):
+        from app.services.channel_push_service import push_availability_update
+        from app.models.models import Room as RoomModel, RoomType as RoomTypeModel
+        import asyncio
+        room_res = await db.execute(select(RoomModel).where(RoomModel.id == booking.room_id))
+        room_obj = room_res.scalar_one_or_none()
+        if room_obj:
+            asyncio.create_task(
+                push_availability_update(
+                    db, room_obj.room_type_id,
+                    booking.check_in_date, booking.check_out_date,
+                    triggered_by=f"booking_{new_status}"
+                )
+            )
     return booking
 
 

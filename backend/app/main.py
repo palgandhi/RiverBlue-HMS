@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.middleware.logging import logging_middleware
 from app.middleware.error_handler import error_handler_middleware
-from app.api.v1.routes import auth, bookings, rooms, users, checkins, housekeeping, billing, invoice, night_audit, ota
+from app.api.v1.routes import auth, bookings, rooms, users, checkins, housekeeping, billing, invoice, night_audit, ota, audit_logs
 from app.api.v1.routes import settings as settings_router
 
 logging.basicConfig(
@@ -42,8 +42,11 @@ async def scheduled_night_audit():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"RiverBlue HMS starting — environment: {settings.ENVIRONMENT}")
-    import asyncio
-    asyncio.create_task(scheduled_night_audit())
+    if settings.ENVIRONMENT != "production":
+        import asyncio
+        asyncio.create_task(scheduled_night_audit())
+    else:
+        logger.info("Production environment detected — local background scheduler disabled (run night audits externally)")
     yield
     logger.info("RiverBlue HMS shutting down")
 
@@ -89,6 +92,7 @@ app.include_router(settings_router.router, prefix=PREFIX)
 app.include_router(invoice.router, prefix=PREFIX)
 app.include_router(night_audit.router, prefix=PREFIX)
 app.include_router(ota.router, prefix=PREFIX)
+app.include_router(audit_logs.router, prefix=PREFIX)
 
 
 @app.get("/health", tags=["System"])

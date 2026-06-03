@@ -70,7 +70,7 @@ export default function RoomsPage() {
   };
 
   const filtered = filter === "all" ? rooms : rooms.filter(r => r.status === filter);
-  const floors = [...new Set(filtered.map(r => r.floor))].sort((a, b) => a - b);
+  const floors = Array.from(new Set(filtered.map(r => r.floor))).sort((a, b) => a - b);
 
   const openDialog = (room: Room) => {
     setSelected(room);

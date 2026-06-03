@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Wifi, WifiOff } from "lucide-react";
+import { Plus, Wifi, WifiOff, RefreshCw, CheckCircle2, XCircle, Activity } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from "date-fns";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
@@ -39,6 +40,16 @@ interface OTAChannel {
   api_endpoint: string | null;
 }
 
+interface PushLog {
+  id: string;
+  pushed_at: string;
+  push_type: string;
+  success: boolean;
+  response_message: string | null;
+  channel_id: string;
+  room_type_id: string | null;
+}
+
 const SOURCES = [
   { value: "direct",        label: "Direct" },
   { value: "makemytrip",    label: "MakeMyTrip" },
@@ -63,6 +74,8 @@ export default function OTAPage() {
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [channels, setChannels] = useState<OTAChannel[]>([]);
+  const [pushLogs, setPushLogs] = useState<PushLog[]>([]);
+  const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [planOpen, setPlanOpen] = useState(false);
@@ -82,10 +95,12 @@ export default function OTAPage() {
       api.get("/rooms/types"),
       api.get("/ota/rate-plans"),
       api.get("/ota/channels"),
-    ]).then(([rt, rp, ch]) => {
+      api.get("/ota/push-logs?limit=50"),
+    ]).then(([rt, rp, ch, pl]) => {
       setRoomTypes(rt.data);
       setRatePlans(rp.data);
       setChannels(ch.data);
+      setPushLogs(pl.data);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -157,6 +172,18 @@ export default function OTAPage() {
     }
   };
 
+  const handleFullSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await api.post("/ota/sync/push");
+      toast.success(`Sync complete — ${res.data.room_types_synced} room types, ${res.data.rate_plans_pushed} rate plans pushed`);
+      const pl = await api.get("/ota/push-logs?limit=50");
+      setPushLogs(pl.data);
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || "Sync failed");
+    } finally { setSyncing(false); }
+  };
+
   if (loading) return <div className="h-32 bg-muted animate-pulse rounded-lg" />;
 
   return (
@@ -169,10 +196,20 @@ export default function OTAPage() {
       </div>
 
       <Tabs defaultValue="rates">
-        <TabsList className="h-8">
-          <TabsTrigger value="rates" className="text-xs h-7">Rate Plans</TabsTrigger>
-          <TabsTrigger value="channels" className="text-xs h-7">Channels</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between mb-3">
+          <TabsList className="h-8">
+            <TabsTrigger value="rates" className="text-xs h-7">Rate Plans</TabsTrigger>
+            <TabsTrigger value="channels" className="text-xs h-7">Channels</TabsTrigger>
+            <TabsTrigger value="push-logs" className="text-xs h-7">
+              <Activity className="h-3 w-3 mr-1" />
+              Sync Logs ({pushLogs.length})
+            </TabsTrigger>
+          </TabsList>
+          <Button size="sm" variant="outline" className="gap-2 h-8" onClick={handleFullSync} disabled={syncing}>
+            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Force Full Sync"}
+          </Button>
+        </div>
 
         {/* Rate Plans */}
         <TabsContent value="rates" className="space-y-4 mt-4">
@@ -288,6 +325,60 @@ export default function OTAPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* Push Logs */}
+        <TabsContent value="push-logs" className="mt-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Outbound Push Log — Last 50</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Channel</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Response</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pushLogs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
+                        No push logs yet. Logs appear after a booking or rate change triggers a channel sync.
+                      </TableCell>
+                    </TableRow>
+                  ) : pushLogs.map(log => {
+                    const ch = channels.find(c => c.id === log.channel_id);
+                    return (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {format(new Date(log.pushed_at), "dd MMM HH:mm:ss")}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium capitalize">
+                            {log.push_type}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm">{ch?.display_name || log.channel_id.slice(0, 8)}</TableCell>
+                        <TableCell>
+                          {log.success
+                            ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            : <XCircle className="h-4 w-4 text-red-500" />}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
+                          {log.response_message || "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

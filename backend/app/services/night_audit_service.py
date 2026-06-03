@@ -34,6 +34,18 @@ async def run_night_audit(
 
     logger.info(f"Night audit starting for {business_date} by {ran_by}")
 
+    # Acquire database transactional lock (advisory lock ID: 123456789)
+    # The lock persists for the transaction life cycle and automatically releases on commit/rollback.
+    lock_result = await db.execute(select(func.pg_try_advisory_xact_lock(123456789)))
+    has_lock = lock_result.scalar()
+    if not has_lock:
+        logger.info("Could not acquire night audit lock. Night audit is already running on another instance.")
+        return {
+            "status": "skipped",
+            "message": "Night audit execution locked by another process.",
+            "business_date": str(business_date),
+        }
+
     # Check if audit already ran for this date
     existing = await db.execute(
         select(NightAuditLog).where(

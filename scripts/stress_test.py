@@ -483,6 +483,145 @@ if rooms:
     test("Invalid room status rejected (422)", r.status_code == 422)
 
 
+# ── 11.5. NIGHT AUDIT & CONCURRENCY LOCK ──────────────────────────────────────
+section("11.5. Night Audit & Concurrency Locking")
+
+import concurrent.futures
+from datetime import date, timedelta
+
+# Run for a distinct future date to ensure no previous run exists
+test_date = (date.today() + timedelta(days=10)).isoformat()
+
+def run_audit_request():
+    # Pass date as query param
+    return post(f"/night-audit/run?business_date={test_date}", {})
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    futures = [executor.submit(run_audit_request) for _ in range(2)]
+    responses = [f.result() for f in futures]
+
+status_codes = [r.status_code for r in responses]
+test("Both concurrency requests respond successfully", all(code in [200, 201] for code in status_codes), f"codes={status_codes}")
+
+results_data = [r.json() for r in responses]
+statuses = [res.get("status") for res in results_data]
+test("Concurrently locked or skipped response returned", "skipped" in statuses, f"statuses={statuses}")
+
+skipped_res = next((res for res in results_data if res.get("status") == "skipped"), {})
+test("Locked by another process or already completed message",
+     "locked" in skipped_res.get("message", "").lower() or "completed" in skipped_res.get("message", "").lower(),
+     f"message={skipped_res.get('message')}")
+
+
+
+# ── 12. AUDIT LOGS ────────────────────────────────────────────────────────────
+section("12. Security Audit Logs")
+
+# Fetch audit logs as Admin
+r = get("/audit-logs/")
+test("Admin can read audit logs", r.status_code == 200)
+recep_headers = locals().get("recep_headers", None)
+if r.status_code == 200:
+    logs = r.json()
+    test("Audit logs not empty", len(logs) > 0, f"{len(logs)} entries found")
+    
+    # Check that common actions were captured
+    actions_captured = [log["action"] for log in logs]
+    test("Logged create_booking action", "create_booking" in actions_captured, f"actions={set(actions_captured)}")
+    
+    # Verify metadata fields are captured
+    first_log = logs[0]
+    test("Audit log records IP address", "ip_address" in first_log)
+    test("Audit log records user agent", "user_agent" in first_log)
+
+# Fetch audit logs as Receptionist (should be rejected)
+if recep_headers:
+    r = requests.get(f"{BASE}/audit-logs/", headers=recep_headers)
+    test("Receptionist cannot read audit logs (403)", r.status_code == 403)
+
+# Filter by action
+r = get("/audit-logs/?action=create_booking")
+test("Filter audit logs by action works", r.status_code == 200)
+if r.status_code == 200:
+    test("Filter returns only create_booking logs", all(log["action"] == "create_booking" for log in r.json()))
+
+
+# ── 13. SPLIT INVOICING & FOLIO ROUTING ───────────────────────────────────────
+section("13. Split Invoicing & Folio Routing")
+
+if booking_ref:
+    b_res = get(f"/bookings/{booking_ref}")
+    if b_res.status_code == 200:
+        booking_id = b_res.json()["id"]
+
+        # 1. Seed the Primary folio first via GET (lazy init)
+        r_primary_init = get(f"/billing/folio/{booking_id}")
+        test("Primary folio lazy-init succeeds", r_primary_init.status_code == 200)
+
+        # 2. Create a secondary split folio labelled "Extras"
+        r = post(f"/billing/folio/{booking_id}/split", {"label": "Extras"})
+        test("Create split folio succeeds", r.status_code == 201)
+        secondary_invoice_id = r.json()["id"]
+        test("Split folio labelled correctly", r.json().get("label") == "Extras")
+
+        # 3. List all folios — must see Primary + Extras
+        r = get(f"/billing/folio/{booking_id}/list")
+        test("List booking folios works", r.status_code == 200)
+        if r.status_code == 200:
+            folios = r.json()
+            test("Booking has multiple folios", len(folios) >= 2, f"found {len(folios)} folio(s)")
+            primary_invoice_id = next((f["id"] for f in folios if f["label"] == "Primary"), None)
+            test("Primary folio exists in list", primary_invoice_id is not None)
+
+            if primary_invoice_id:
+                # 4. Add a laundry charge to the Extras folio
+                r = post(f"/billing/folio/{booking_id}/items?invoice_id={secondary_invoice_id}", {
+                    "description": "Guest Laundry Services",
+                    "item_type": "laundry",
+                    "quantity": 1,
+                    "unit_price": 50000  # ₹500 in paise
+                })
+                test("Add charge to secondary folio succeeds", r.status_code == 201)
+                laundry_item_id = r.json()["id"]
+
+                # Verify secondary folio subtotal = ₹500
+                r = get(f"/billing/folio/{booking_id}?invoice_id={secondary_invoice_id}")
+                test("Secondary folio subtotal correct (50000 paise)",
+                     r.status_code == 200 and r.json()["invoice"]["subtotal"] == 50000,
+                     f"got subtotal={r.json().get('invoice', {}).get('subtotal')}")
+
+                # Get primary folio subtotal before transfer
+                r_before = get(f"/billing/folio/{booking_id}?invoice_id={primary_invoice_id}")
+                primary_subtotal_before = r_before.json()["invoice"]["subtotal"]
+
+                # 5. Transfer laundry charge from Extras to Primary
+                r = post(f"/billing/items/{laundry_item_id}/transfer?target_invoice_id={primary_invoice_id}", {})
+                test("Transfer item to primary folio succeeds", r.status_code == 200)
+
+                # Verify secondary folio is now empty (subtotal 0)
+                r = get(f"/billing/folio/{booking_id}?invoice_id={secondary_invoice_id}")
+                test("Secondary folio subtotal reset to 0 after transfer",
+                     r.status_code == 200 and r.json()["invoice"]["subtotal"] == 0,
+                     f"got subtotal={r.json().get('invoice', {}).get('subtotal')}")
+
+                # Verify primary folio subtotal grew by exactly 50000 paise
+                r = get(f"/billing/folio/{booking_id}?invoice_id={primary_invoice_id}")
+                primary_subtotal_after = r.json()["invoice"]["subtotal"]
+                test("Primary folio subtotal grew by exactly ₹500 after transfer",
+                     primary_subtotal_after == primary_subtotal_before + 50000,
+                     f"before={primary_subtotal_before} after={primary_subtotal_after}")
+
+                # 6. Verify tax items can't be transferred directly
+                # find a tax item on primary folio
+                r = get(f"/billing/folio/{booking_id}?invoice_id={primary_invoice_id}")
+                tax_items = [item for item in r.json()["items"] if item["item_type"] == "tax"]
+                if tax_items:
+                    r_tax_transfer = post(
+                        f"/billing/items/{tax_items[0]['id']}/transfer?target_invoice_id={secondary_invoice_id}", {}
+                    )
+                    test("Transfer of tax item rejected (400)", r_tax_transfer.status_code == 400)
+
+
 # ── SUMMARY ───────────────────────────────────────────────────────────────────
 total = results["passed"] + results["failed"] + results["warned"]
 print(f"\n{BOLD}{'═'*50}{RESET}")

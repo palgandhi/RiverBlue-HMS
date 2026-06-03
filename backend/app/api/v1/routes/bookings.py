@@ -109,6 +109,7 @@ async def cancel_booking(
             status_code=409,
             detail=f"Cannot cancel a booking with status '{booking.status}'"
         )
+    old_status = booking.status
     booking.status = BookingStatus.cancelled
     # Free up the room
     result = await db.execute(select(Room).where(Room.id == booking.room_id))
@@ -116,6 +117,16 @@ async def cancel_booking(
     if room and room.status == RoomStatus.occupied:
         room.status = RoomStatus.available
     await db.flush()
+
+    from app.services.audit_log_service import log_action
+    await log_action(
+        db,
+        action="cancel_booking",
+        entity_type="Booking",
+        entity_id=str(booking.id),
+        old_value={"status": old_status},
+        new_value={"status": booking.status}
+    )
     return booking
 
 
@@ -134,6 +145,17 @@ async def mark_no_show(
             status_code=409,
             detail=f"Cannot mark no-show for booking with status '{booking.status}'"
         )
+    old_status = booking.status
     booking.status = BookingStatus.no_show
     await db.flush()
+
+    from app.services.audit_log_service import log_action
+    await log_action(
+        db,
+        action="no_show_booking",
+        entity_type="Booking",
+        entity_id=str(booking.id),
+        old_value={"status": old_status},
+        new_value={"status": booking.status}
+    )
     return booking

@@ -68,6 +68,21 @@ async def process_checkin(
     await db.flush()
     await db.refresh(room)
     await db.refresh(booking)
+
+    from app.services.audit_log_service import log_action
+    await log_action(
+        db,
+        action="check_in",
+        entity_type="CheckIn",
+        entity_id=str(checkin.id),
+        new_value={
+            "booking_id": str(booking.id),
+            "booking_ref": booking.booking_ref,
+            "room_number": room.room_number,
+            "key_card_number": checkin.key_card_number,
+            "remarks": checkin.remarks,
+        }
+    )
     return checkin
 
 
@@ -127,4 +142,18 @@ async def process_checkout(
     await create_checkout_task(db, booking.room_id)
 
     await db.flush()
+
+    from app.services.audit_log_service import log_action
+    await log_action(
+        db,
+        action="check_out",
+        entity_type="CheckIn",
+        entity_id=str(checkin.id),
+        new_value={
+            "booking_id": str(booking.id),
+            "booking_ref": booking.booking_ref,
+            "checkout_time": str(checkin.checkout_time),
+            "remarks": checkin.remarks,
+        }
+    )
     return checkin

@@ -52,6 +52,7 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.user_service import get_user_by_id
+    from app.core.context import request_user_id
     payload = decode_token(token)
     if payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid token type")
@@ -61,6 +62,7 @@ async def get_current_user(
     user = await get_user_by_id(db, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+    request_user_id.set(user.id)
     return user
 
 

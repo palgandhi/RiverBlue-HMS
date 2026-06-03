@@ -211,6 +211,7 @@ class Invoice(Base):
     discount_amount: Mapped[int] = mapped_column(Integer, default=0)
     total_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[InvoiceStatus] = mapped_column(SAEnum(InvoiceStatus), default=InvoiceStatus.draft)
+    label: Mapped[str] = mapped_column(String(50), default="Primary")
     issued_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     booking: Mapped["Booking"] = relationship("Booking", back_populates="invoices")
@@ -379,3 +380,35 @@ class OTAChannelConfig(Base):
     commission_pct: Mapped[int] = mapped_column(Integer, default=0)  # e.g. 15 = 15%
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    entity_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    old_value: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    new_value: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    user: Mapped[Optional["User"]] = relationship("User")
+
+
+class OTAPushLog(Base):
+    """Immutable log of every outbound push to a channel manager."""
+    __tablename__ = "ota_push_logs"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pushed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    channel_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ota_channel_configs.id"), nullable=False)
+    room_type_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("room_types.id"), nullable=True)
+    push_type: Mapped[str] = mapped_column(String(20), nullable=False)  # availability | rate
+    payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    success: Mapped[bool] = mapped_column(Boolean, default=False)
+    response_message: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    channel: Mapped["OTAChannelConfig"] = relationship("OTAChannelConfig")
+    room_type: Mapped[Optional["RoomType"]] = relationship("RoomType")
