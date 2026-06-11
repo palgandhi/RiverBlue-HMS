@@ -1,11 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, BedDouble } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 import { useRouter } from "next/navigation";
-import { addDays, format, startOfWeek, addWeeks, subWeeks, isSameDay, parseISO, isWithinInterval } from "date-fns";
+import { addDays, format, startOfWeek, addWeeks, subWeeks, isSameDay, parseISO } from "date-fns";
 
 interface Booking {
   id: string;

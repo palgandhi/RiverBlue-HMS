@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import api from "@/lib/api";
@@ -53,7 +53,7 @@ export default function HousekeepingPage() {
       ]);
       setTasks(tasksRes.data);
       const roomMap: Record<string, string> = {};
-      roomsRes.data.forEach((r: any) => { roomMap[r.id] = r.room_number; });
+      roomsRes.data.forEach((r: { id: string; room_number: string }) => { roomMap[r.id] = r.room_number; });
       setRooms(roomMap);
     } finally {
       setLoading(false);
@@ -68,8 +68,8 @@ export default function HousekeepingPage() {
       setTasks(prev => prev.map(t => t.id === taskId ? res.data : t));
       if (status === "completed") toast.success("Task completed — room marked available");
       else toast.success(`Task ${status.replace("_", " ")}`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to update task");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to update task");
     }
   };
 

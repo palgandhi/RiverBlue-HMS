@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  ArrowLeft, BedDouble, Calendar, User, Receipt,
-  LogIn, LogOut, XCircle, AlertTriangle, Pencil, Phone, Mail, CreditCard
+  ArrowLeft, BedDouble, User, Receipt,
+  LogIn, LogOut, XCircle, AlertTriangle, Pencil, CreditCard
 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -33,16 +33,6 @@ interface BookingDetail {
   created_at: string;
 }
 
-interface GuestInfo {
-  id: string;
-  full_name: string;
-  email: string | null;
-  phone: string;
-  id_type: string | null;
-  id_number: string | null;
-  nationality: string | null;
-  total_stays: number;
-}
 
 interface RoomInfo {
   id: string;
@@ -79,7 +69,6 @@ export default function BookingDetailPage() {
   const ref = (params.ref as string).toUpperCase();
 
   const [booking, setBooking] = useState<BookingDetail | null>(null);
-  const [guest, setGuest] = useState<GuestInfo | null>(null);
   const [room, setRoom] = useState<RoomInfo | null>(null);
   const [roomType, setRoomType] = useState<RoomTypeInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,9 +84,7 @@ export default function BookingDetailPage() {
   const [invoiceHtml, setInvoiceHtml] = useState("");
   const [invoiceLoading, setInvoiceLoading] = useState(false);
 
-  useEffect(() => { loadBooking(); }, [ref]);
-
-  const loadBooking = async () => {
+  const loadBooking = useCallback(async () => {
     setLoading(true);
     try {
       const bRes = await api.get(`/bookings/${ref}`);
@@ -105,7 +92,6 @@ export default function BookingDetailPage() {
       setBooking(b);
       setEditForm({ special_requests: b.special_requests || "" });
 
-      // Load guest + room in parallel
       const [roomsRes, typesRes] = await Promise.all([
         api.get("/rooms/"),
         api.get("/rooms/types"),
@@ -122,7 +108,11 @@ export default function BookingDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [ref, router]);
+
+  useEffect(() => { loadBooking(); }, [loadBooking]);
+
+
 
   const handleCheckin = async () => {
     if (!booking) return;
@@ -131,8 +121,8 @@ export default function BookingDetailPage() {
       await api.post("/checkins/", { booking_ref: booking.booking_ref });
       toast.success("Guest checked in successfully");
       loadBooking();
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Check-in failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Check-in failed");
     } finally { setActing(false); }
   };
 
@@ -152,8 +142,8 @@ export default function BookingDetailPage() {
       await api.post(`/checkins/${booking.booking_ref}/checkout`, {});
       toast.success("Guest checked out");
       loadBooking();
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Checkout failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Checkout failed");
     } finally { setActing(false); }
   };
 
@@ -165,8 +155,8 @@ export default function BookingDetailPage() {
       await api.post(`/bookings/${booking.booking_ref}/cancel`);
       toast.success("Booking cancelled");
       loadBooking();
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Cancel failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Cancel failed");
     } finally { setActing(false); }
   };
 
@@ -178,8 +168,8 @@ export default function BookingDetailPage() {
       await api.post(`/bookings/${booking.booking_ref}/no-show`);
       toast.success("Marked as no-show");
       loadBooking();
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed");
     } finally { setActing(false); }
   };
 
@@ -191,8 +181,8 @@ export default function BookingDetailPage() {
       toast.success("Booking updated");
       setEditOpen(false);
       loadBooking();
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to update");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to update");
     } finally { setSaving(false); }
   };
 

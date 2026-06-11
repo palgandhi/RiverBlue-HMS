@@ -69,12 +69,15 @@ const sourceLabel: Record<string, string> = {
   phone: "Phone", other: "Other",
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry { name: string; value: number; color: string; }
+interface TooltipProps { active?: boolean; payload?: TooltipEntry[]; label?: string; }
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-card border rounded-lg shadow-lg p-3 text-xs space-y-1">
       <p className="font-semibold text-muted-foreground">{label}</p>
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry: TooltipEntry, i: number) => (
         <p key={i} style={{ color: entry.color }}>
           {entry.name}: {entry.name.includes("Revenue") || entry.name.includes("ADR") || entry.name.includes("RevPAR")
             ? fmt(entry.value)
@@ -185,7 +188,7 @@ export default function ReportsPage() {
 
           {today && (
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Today's Activity</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Today&apos;s Activity</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
@@ -259,7 +262,8 @@ export default function ReportsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={72} />
-                      <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Revenue"]} />
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      <Tooltip formatter={(v: any) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Revenue"]} />
                     <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
                       {sourceChartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Bar>
@@ -321,10 +325,11 @@ export default function ReportsPage() {
                 {sourceChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
-                      <Pie data={sourceChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false}>
+                      <Pie data={sourceChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                         {sourceChartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip formatter={(v: any) => [Number(v), "Bookings"]} />
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      <Tooltip formatter={(v: any) => [Number(v ?? 0), "Bookings"]} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : <p className="text-sm text-muted-foreground py-10">No bookings yet.</p>}
@@ -337,10 +342,11 @@ export default function ReportsPage() {
                 {statusPieData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
-                      <Pie data={statusPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false}>
+                      <Pie data={statusPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                         {statusPieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip formatter={(v: any) => [Number(v), "Bookings"]} />
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      <Tooltip formatter={(v: any) => [Number(v ?? 0), "Bookings"]} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : <p className="text-sm text-muted-foreground py-10">No bookings yet.</p>}

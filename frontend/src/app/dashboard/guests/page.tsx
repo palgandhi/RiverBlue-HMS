@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, User, Phone, Mail, IdCard, Globe, History, Plus } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import Link from "next/link";
 
 interface Guest {
   id: string;
@@ -68,22 +67,20 @@ function GuestsPageInner() {
   const [editForm, setEditForm] = useState({ full_name: "", phone: "", email: "", nationality: "" });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (initialId) loadGuestById(initialId);
-  }, [initialId]);
-
-  const loadGuestById = async (id: string) => {
+  const loadGuestById = useCallback(async (id: string) => {
     try {
-      // search by querying bookings to find guest
       const allBookingsRes = await api.get("/bookings/?limit=200");
       const matching = allBookingsRes.data.filter((b: GuestBooking & { guest_id: string }) => b.guest_id === id);
       if (matching.length > 0) {
-        // We need to search for guest info; use the search endpoint
         const searchRes = await api.get(`/bookings/guests/search?q=${id}`);
         if (searchRes.data.length > 0) selectGuest(searchRes.data[0]);
       }
-    } catch {}
-  };
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (initialId) loadGuestById(initialId);
+  }, [initialId, loadGuestById]);
 
   const doSearch = async () => {
     if (searchQ.trim().length < 2) return;
@@ -92,8 +89,8 @@ function GuestsPageInner() {
       const res = await api.get(`/bookings/guests/search?q=${encodeURIComponent(searchQ.trim())}`);
       setResults(res.data);
       if (res.data.length === 0) toast.info("No guests found");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Search failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Search failed");
     } finally { setSearching(false); }
   };
 
@@ -120,8 +117,8 @@ function GuestsPageInner() {
       setNewForm({ full_name: "", phone: "", email: "", id_type: "Aadhar", id_number: "", nationality: "Indian" });
       selectGuest(res.data);
       setResults(prev => [res.data, ...prev]);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to create guest");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to create guest");
     } finally { setCreating(false); }
   };
 
@@ -133,7 +130,7 @@ function GuestsPageInner() {
       toast.success("Guest details saved");
       setSelected(prev => prev ? { ...prev, ...editForm } : null);
       setEditOpen(false);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to update guest");
     } finally { setSaving(false); }
   };

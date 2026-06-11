@@ -27,14 +27,12 @@ interface HotelSettings {
 }
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<HotelSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Partial<HotelSettings>>({});
 
   useEffect(() => {
     api.get("/settings/").then(r => {
-      setSettings(r.data);
       setForm(r.data);
     }).finally(() => setLoading(false));
   }, []);
@@ -45,10 +43,10 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       const res = await api.patch("/settings/", form);
-      setSettings(res.data);
+      setForm(res.data);
       toast.success("Settings saved");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to save");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to save");
     } finally {
       setSaving(false);
     }

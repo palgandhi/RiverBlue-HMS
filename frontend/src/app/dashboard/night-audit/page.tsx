@@ -68,7 +68,7 @@ export default function NightAuditPage() {
       ]);
       setTodayStats(todayRes.data);
       setLogs(logsRes.data);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load audit data");
     } finally { setLoading(false); }
   };
@@ -85,8 +85,8 @@ export default function NightAuditPage() {
         toast.info(res.data.message || "Audit already completed for today");
       }
       await loadData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Audit failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Audit failed");
     } finally { setRunning(false); }
   };
 
@@ -108,7 +108,7 @@ export default function NightAuditPage() {
             <Moon className="h-5 w-5 text-primary" /> Night Audit
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Snapshot today's hotel stats, close the business day, and archive occupancy & revenue data.
+            Snapshot today&apos;s hotel stats, close the business day, and archive occupancy &amp; revenue data.
           </p>
         </div>
         <Button
@@ -148,7 +148,7 @@ export default function NightAuditPage() {
                   <IndianRupee className="h-3.5 w-3.5" /> Room Revenue
                 </p>
                 <p className="text-2xl font-bold text-green-600 mt-1">{fmt(todayStats.room_revenue)}</p>
-                <p className="text-xs text-muted-foreground">today's room charges</p>
+                 <p className="text-xs text-muted-foreground">today&apos;s room charges</p>
               </CardContent>
             </Card>
             <Card>

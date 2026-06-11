@@ -76,8 +76,8 @@ export default function NewBookingPage() {
       });
       toast.success(`Booking created — ${bookingRes.data.booking_ref}`);
       router.push("/dashboard/bookings");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to create booking");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to create booking");
     } finally {
       setLoading(false);
     }

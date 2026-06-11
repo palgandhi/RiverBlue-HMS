@@ -123,8 +123,8 @@ function BillingPageInner() {
     try {
       const res = await api.get(`/billing/folio/${bookingId}`);
       setFolio(res.data);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to load folio");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to load folio");
     } finally {
       setLoading(false);
     }
@@ -147,8 +147,8 @@ function BillingPageInner() {
       setChargeOpen(false);
       setCharge({ description: "", item_type: "fb", quantity: "1", unit_price: "" });
       toast.success("Charge added to folio");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to add charge");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to add charge");
     } finally {
       setSubmitting(false);
     }
@@ -170,8 +170,8 @@ function BillingPageInner() {
       setPaymentOpen(false);
       setPayment({ amount: "", method: "cash", transaction_ref: "" });
       toast.success("Payment recorded");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to record payment");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to record payment");
     } finally {
       setSubmitting(false);
     }
@@ -183,8 +183,8 @@ function BillingPageInner() {
       await api.post(`/billing/folio/${bookingId}/finalise`);
       await loadFolio();
       toast.success("Invoice finalised");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to finalise");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to finalise");
     }
   };
 
@@ -216,8 +216,8 @@ function BillingPageInner() {
       setDiscountOpen(false);
       setDiscount({ type: "percentage", value: "", reason: "" });
       toast.success(`Discount of ₹${(discountAmount / 100).toLocaleString("en-IN")} applied`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to apply discount");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to apply discount");
     } finally {
       setSubmitting(false);
     }
@@ -229,8 +229,8 @@ function BillingPageInner() {
       await api.post(`/checkins/${folio.booking_ref}/checkout`, {});
       toast.success("Guest checked out successfully");
       router.push("/dashboard/checkin");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Checkout failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Checkout failed");
     }
   };
 

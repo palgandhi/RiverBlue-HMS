@@ -47,8 +47,8 @@ export default function BookingsPage() {
       await api.post(`/bookings/${b.booking_ref}/cancel`);
       setBookings(prev => prev.map(x => x.id === b.id ? { ...x, status: "cancelled" as BookingStatus } : x));
       toast.success(`${b.booking_ref} cancelled`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to cancel");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to cancel");
     }
   };
 
@@ -59,8 +59,8 @@ export default function BookingsPage() {
       await api.post(`/bookings/${b.booking_ref}/no-show`);
       setBookings(prev => prev.map(x => x.id === b.id ? { ...x, status: "no_show" as BookingStatus } : x));
       toast.success(`${b.booking_ref} marked as no-show`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed");
     }
   };
 

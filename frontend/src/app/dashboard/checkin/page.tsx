@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -71,8 +71,8 @@ export default function CheckInPage() {
       setTodayArrivals(prev => prev.filter(b => b.booking_ref !== booking.booking_ref));
       setInHouseGuests(prev => [...prev, updated]);
       toast.success(`✓ Checked in — ${booking.booking_ref}`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Check-in failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Check-in failed");
     } finally {
       setActionLoading(false);
     }
@@ -89,8 +89,8 @@ export default function CheckInPage() {
       setBooking(updated);
       setInHouseGuests(prev => prev.filter(b => b.booking_ref !== booking.booking_ref));
       toast.success(`✓ Checked out — ${booking.booking_ref}`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Check-out failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Check-out failed");
     } finally {
       setActionLoading(false);
     }

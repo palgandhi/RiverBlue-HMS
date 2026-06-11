@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from "@/components/ui/dialog";
@@ -89,8 +88,8 @@ export default function RoomsPage() {
       setRooms(prev => prev.map(r => r.id === selected.id ? { ...r, status: res.data.status, notes: notes } : r));
       toast.success(`Room ${selected.room_number} → ${statusConfig[newStatus].label}`);
       setSelected(null);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to update room");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to update room");
     } finally {
       setUpdating(false);
     }

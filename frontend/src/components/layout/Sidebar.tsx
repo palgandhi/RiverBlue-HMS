@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard, BedDouble, CalendarDays, LogIn,
-  Sparkles, Users, LogOut, ChevronRight, Receipt, Settings, BarChart3, Globe,
+  Sparkles, Users, LogOut, ChevronRight, Settings, BarChart3, Globe,
   UserRound, CalendarRange, Moon
 } from "lucide-react";
 

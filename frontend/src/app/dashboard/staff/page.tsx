@@ -49,8 +49,8 @@ export default function StaffPage() {
       setOpen(false);
       setForm({ full_name: "", email: "", password: "", role: "receptionist" });
       toast.success(`Staff member ${res.data.full_name} created`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to create user");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed to create user");
     } finally {
       setCreating(false);
     }

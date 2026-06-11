@@ -123,8 +123,8 @@ export default function OTAPage() {
       setPlanOpen(false);
       setPlanForm({ room_type_id: "", name: "", source: "makemytrip", price_per_night: "" });
       toast.success("Rate plan created");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed");
     } finally {
       setSubmitting(false);
     }
@@ -155,8 +155,8 @@ export default function OTAPage() {
       setChannelOpen(false);
       setChannelForm({ channel_name: "", display_name: "", api_endpoint: "", webhook_secret: "", api_key: "", commission_pct: "15" });
       toast.success("Channel configured");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Failed");
     } finally {
       setSubmitting(false);
     }
@@ -179,8 +179,8 @@ export default function OTAPage() {
       toast.success(`Sync complete — ${res.data.room_types_synced} room types, ${res.data.rate_plans_pushed} rate plans pushed`);
       const pl = await api.get("/ota/push-logs?limit=50");
       setPushLogs(pl.data);
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Sync failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || "Sync failed");
     } finally { setSyncing(false); }
   };
 
