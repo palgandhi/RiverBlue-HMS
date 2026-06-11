@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ export function useSessionTimeout() {
   const router = useRouter();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (!token) return;
     timerRef.current = setTimeout(() => {
@@ -19,7 +19,7 @@ export function useSessionTimeout() {
       toast.warning("Session expired. Please log in again.");
       router.push("/login");
     }, TIMEOUT_MS);
-  };
+  }, [token, logout, router]);
 
   useEffect(() => {
     if (!token) return;
@@ -30,5 +30,5 @@ export function useSessionTimeout() {
       events.forEach(e => window.removeEventListener(e, resetTimer));
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [token]);
+  }, [token, resetTimer]);
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,9 +115,9 @@ function BillingPageInner() {
   useEffect(() => {
     if (!bookingId) return;
     loadFolio();
-  }, [bookingId]);
+  }, [bookingId, loadFolio]);
 
-  const loadFolio = async () => {
+  const loadFolio = useCallback(async () => {
     if (!bookingId) return;
     setLoading(true);
     try {
@@ -128,7 +128,7 @@ function BillingPageInner() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [bookingId]);
 
   const handleAddCharge = async () => {
     if (!bookingId || !charge.description || !charge.unit_price) {

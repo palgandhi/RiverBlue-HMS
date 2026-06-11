@@ -25,7 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push("/login");
     }
     setReady(true);
-  }, []);
+  }, [router, setAuth]);
 
   if (!ready) return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30">
